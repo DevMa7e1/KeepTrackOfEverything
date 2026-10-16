@@ -1,6 +1,7 @@
 import ttkbootstrap as ttk
 from functools import partial
 from tkinter import Variable
+from time import process_time_ns
 
 class Location:
     def __init__(self, name: str, root: ttk.Frame) -> None:
@@ -9,6 +10,7 @@ class Location:
         self.child_names = []
         self.root = root
         self.frames = []
+        self.id = process_time_ns()
     def add_child(self, child: Place):
         if child.name not in self.child_names:
             child.set_location(self, self.frames[-1])
@@ -39,10 +41,11 @@ class Place:
     def __init__(self, name: str):
         self.name = name
         self.location = None
-        self.children = []
+        self.children: list[Place|Object] = []
         self.child_names = []
         self.frames = []
         self.root = None
+        self.id = process_time_ns()
     def add_child(self, child: Place | Object):
             if child.name not in self.child_names:
                 if type(child) == Object:
@@ -84,9 +87,28 @@ class Place:
 class Error(Place):
     def __init__(self, name: str):
         self.name = name
+        self.id = 0
 
 class Object:
     def __init__(self, name: str) -> None:
         self.name = name
+        self.id = process_time_ns()
     def set_location(self, location: Location | Place, root):
         self.location = location
+
+class BasicTree:
+    def __init__(self, owner: Location|Place):
+        self._d = {}
+        self._owner = owner
+    def __getitem__(self, key) -> BasicTree:
+        return self._d[key]
+    def __setitem__(self, key: Object|Place, value: BasicTree):
+        self._d[key] = value
+    def __str__(self) -> str:
+        return str(self._d)
+    def __contains__(self, item):
+        return item in self._d
+    def children(self):
+        return list(self._d.keys())
+    def owner(self):
+        return self._owner
