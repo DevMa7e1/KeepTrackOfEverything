@@ -20,6 +20,9 @@ class Location:
             return True
         else:
             return False
+    def remove_child(self, child: Place):
+            self.children.remove(child)
+            self.child_names.remove(child.name)
     def child(self, name: str) -> Place | Error:
         if name in self.child_names:
             return self.children[self.child_names.index(name)]
@@ -62,6 +65,9 @@ class Place:
                 return True
             else:
                 return False
+    def remove_child(self, child: Place | Object):
+        self.children.remove(child)
+        self.child_names.remove(child.name)
     def set_location(self, location: Location | Place, root: ttk.Frame, actualroot: ttk.Frame):
         self.location = location
         self.root = root
@@ -79,8 +85,9 @@ class Place:
                 ttk.Button(self.root, text=name.get(), command = np.click, bootstyle='warning').grid(row=1+(len(self.children)//5*2), column=len(self.children) % 5, padx=4, pady=(4, 0))
                 self.add_child(np)
             else:
-                ttk.Button(self.root, text=name.get()).grid(row=1+(len(self.children)//5*2), column=len(self.children) % 5, padx=4, pady=4)
-                self.add_child(Object(name.get()))
+                no = Object(name.get())
+                no.button = ttk.Button(self.root, text=name.get(), command=no.click).grid(row=1+(len(self.children)//5*2), column=len(self.children) % 5, padx=4, pady=4)
+                self.add_child(no)
             window.destroy()
         else:
             Messagebox.ok('Cannot add an Object/Place with the same name as another Object/Place withing the same Place.', 'User error', parent=window)
@@ -94,21 +101,40 @@ class Place:
         ttk.Button(window, text='Add', command=partial(self.__after_add_click, name, selected, window), bootstyle='primary').pack(padx=4, pady=4)
     def __after_rename_click(self, entry: ttk.Entry, window):
         newname = entry.get()
-        self.name = newname
-        self.button.config(text=newname) #type: ignore
-        window.destroy()
+        if newname not in self.location.child_names: #type: ignore
+            self.location.child_names[self.location.child_names.index(self.name)] = newname #type: ignore
+            self.name = newname
+            self.button.config(text=newname) #type: ignore
+            window.destroy()
+        else:
+            Messagebox.ok('The new name conflicts with another Place within the same Place/Location.', 'User Error', parent=window)
+            window.destroy()
+        
     def __rename_click(self, none = None):
         window = ttk.Toplevel(title=f'Rename {self.name}')
         window.resizable(width=False, height=False)
         ttk.Label(window, text='New name:', justify='left').pack(fill='x', expand=True, pady=(4, 0))
         name = ttk.Entry(window).pack(padx=(0, 4), pady=4)
         ttk.Button(window, text='Rename', command=partial(self.__after_rename_click, name, window), bootstyle='primary').pack(padx=4, pady=4)
+    def __delete_click(self, window):
+        if Messagebox.yesno('Are you sure that you want to delete this Place?', 'Question', parent=window) == 'Yes':
+            self.destroy()
+        window.destroy()
+    def destroy(self):
+        self.location.remove_child(self) #type: ignore
+        self.button.destroy() #type: ignore
+        for i in self.frames:
+            i[0].destroy()
+        for i in self.children:
+            i.destroy()
+        self.root.destroy() #type: ignore
     def click(self):
         window = ttk.Toplevel(title=self.name)
         window.resizable(width=False, height=False)
         ttk.Label(window, text='What would you like to do?').pack(anchor='e', pady=4)
         ttk.Button(window, text='Add a new Object or Place', bootstyle='info outline', command=lambda: self.__add_click(window.destroy())).pack(anchor='w', padx=4, pady=4)
-        ttk.Button(window, text='Rename this Place', bootstyle='danger outline', command=lambda: self.__rename_click(window.destroy())).pack(anchor='w', padx=4, pady=(0,4))
+        ttk.Button(window, text='Rename this Place', bootstyle='warning outline', command=lambda: self.__rename_click(window.destroy())).pack(anchor='w', padx=4, pady=(0,4))
+        ttk.Button(window, text='Delete this Place', bootstyle='danger outline', command=partial(self.__delete_click, window)).pack(anchor='w', padx=4, pady=(0,4))
 
 class Error(Place):
     def __init__(self, name: str):
@@ -119,9 +145,38 @@ class Object:
     def __init__(self, name: str) -> None:
         self.name = name
         self.id = process_time_ns()
-        self.button = None
-    def set_location(self, location: Location | Place, root):
+        self.button: ttk.Button = None #type: ignore
+    def destroy(self):
+        self.button.destroy() #type: ignore
+        self.location.remove_child(self)
+    def set_location(self, location: Place, root):
         self.location = location
+    def __after_rename_click(self, entry: ttk.Entry, window):
+        newname = entry.get()
+        if newname not in self.location.child_names:
+            self.location.child_names[self.location.child_names.index(self.name)] = newname #type: ignore
+            self.name = newname
+            self.button.config(text=newname) #type: ignore
+            window.destroy()
+        else:
+            Messagebox.ok('The new name conflicts with another Object/Place within the same Place.', 'User Error', parent=window)
+            window.destroy()
+    def __rename_click(self, none = None):
+        window = ttk.Toplevel(title=f'Rename {self.name}')
+        window.resizable(width=False, height=False)
+        ttk.Label(window, text='New name:', justify='left').pack(fill='x', expand=True, pady=(4, 0))
+        name = ttk.Entry(window).pack(padx=(0, 4), pady=4)
+        ttk.Button(window, text='Rename', command=partial(self.__after_rename_click, name, window), bootstyle='primary').pack(padx=4, pady=4)
+    def __delete_click(self, window):
+        if Messagebox.yesno('Are you sure that you want to delete this Object?', 'Question', parent=window) == 'Yes':
+            self.destroy()
+        window.destroy()
+    def click(self):
+        window = ttk.Toplevel(title=self.name)
+        window.resizable(width=False, height=False)
+        ttk.Label(window, text='What would you like to do?').pack(anchor='e', pady=4)
+        ttk.Button(window, text='Rename this Object', bootstyle='warning outline', command=lambda: self.__rename_click(window.destroy())).pack(anchor='w', padx=4, pady=(0,4))
+        ttk.Button(window, text='Delete this Object', bootstyle='danger outline', command=partial(self.__delete_click, window)).pack(anchor='w', padx=4, pady=(0,4))
 
 class BasicTree:
     def __init__(self, owner: Location|Place):
